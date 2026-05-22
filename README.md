@@ -76,16 +76,16 @@ without crashing.
 
 ## Why?
 
-The official Android app works fine but:
+Cheap WiFi otoscopes are perfectly capable little cameras, but they
+typically ship with one mobile-only app and an undocumented network
+protocol. The moment that app stops working — phone OS update, app
+removed from a store, vendor disappears — the hardware effectively
+bricks itself.
 
-* Plays interstitial ads
-* No desktop client
-* No WebRTC / RTSP / open API
-* Hard-coded UI orientation and minimal image controls
-* Closed source
-
-This project is the answer to *"my otoscope is a perfectly good little
-camera, can I just use it like one?"*
+This project documents the protocol and provides a browser-based client
+so the camera keeps working regardless of any single app's lifecycle.
+Anything with a browser becomes a viewer; anything that speaks UDP can
+become a control script.
 
 ## Acknowledgments
 
