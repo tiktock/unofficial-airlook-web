@@ -238,8 +238,12 @@ function applyLang() {
   if (tog) tog.textContent = lang === "ko" ? "EN" : "한";
   // Re-render dynamic labels that depend on state
   if (typeof applyView === "function") applyView();
-  if (typeof updateLedButton === "function" && lastInfo?.pwm != null) {
-    updateLedButton(lastInfo.pwm);
+  if (typeof updateLedButton === "function") {
+    updateLedButton(lastInfo?.pwm ?? null);
+  }
+  if (typeof setBtnLabel === "function") {
+    setBtnLabel("recBtn", (typeof mediaRecorder !== "undefined" && mediaRecorder)
+      ? t("recStop") : t("recStart"));
   }
   document.documentElement.lang = lang;
 }
