@@ -21,8 +21,6 @@ const i18n = {
     saturation: "채도",
     statusPanel: "상태",
     streamLabel: "스트림",
-    frames: "프레임",
-    uptime: "가동",
     battery: "배터리",
     voltage: "전압",
     chargeRow: "상태",
@@ -101,8 +99,6 @@ const i18n = {
     fullShortIcon: "✓",
     fullChargingShortIcon: "✓⚡",
     onBatteryShortIcon: "🔋",
-    headerMeta: (fr, up) => `${fr} frames · uptime ${up}s`,
-    headerConnecting: "connecting…",
   },
   en: {
     rotate: "Rotate",
@@ -122,8 +118,6 @@ const i18n = {
     saturation: "Saturation",
     statusPanel: "Status",
     streamLabel: "Stream",
-    frames: "Frames",
-    uptime: "Uptime",
     battery: "Battery",
     voltage: "Voltage",
     chargeRow: "Charge",
@@ -202,8 +196,6 @@ const i18n = {
     fullShortIcon: "✓",
     fullChargingShortIcon: "✓⚡",
     onBatteryShortIcon: "🔋",
-    headerMeta: (fr, up) => `${fr} frames · uptime ${up}s`,
-    headerConnecting: "connecting…",
   },
 };
 
@@ -668,24 +660,39 @@ async function api(path, opts = {}) {
 // First fetch = full snapshot (slow, ~1s+, includes static board info).
 // Subsequent polls = lightweight /api/dynamic (skips board + mac).
 let initialFetched = false;
+// Liveness tracking: the bridge itself always responds (so api OK ≠ camera OK).
+// We use the server's published-frame counter — if it stops advancing for
+// several polls, the camera is offline (asleep / disconnected / powered off).
+let staleFrameTicks = 0;
+const STALE_FRAMES_OFFLINE = 3;     // 3 polls (≈3 s) with no new frames → gray dot
+
 async function refreshInfo() {
   const url = initialFetched ? '/api/dynamic' : '/api/info';
   const info = await api(url);
-  if (!info) { $('liveDot').classList.remove('live'); return; }
-  $('liveDot').classList.add('live');
+  if (!info) {
+    // Bridge itself unreachable.
+    $('liveDot').classList.remove('live');
+    staleFrameTicks = STALE_FRAMES_OFFLINE;
+    return;
+  }
   initialFetched = true;
 
   // stream
   const s = info.stream || {};
-  $('frames').textContent = fmt(s.frames);
-  $('uptime').textContent = s.uptime != null ? s.uptime + 's' : '—';
   if (lastInfo && s.frames != null && lastInfo.stream && lastInfo.stream.frames != null) {
     const dF = s.frames - lastInfo.stream.frames;
     const dT = (s.uptime - lastInfo.stream.uptime) || 1;
     $('streamFps').textContent = (dF / dT).toFixed(1) + ' fps';
+    if (dF > 0)  staleFrameTicks = 0;
+    else         staleFrameTicks++;
+  }
+  // Dot reflects "camera is publishing frames", not just "bridge is up".
+  if (staleFrameTicks < STALE_FRAMES_OFFLINE) {
+    $('liveDot').classList.add('live');
+  } else {
+    $('liveDot').classList.remove('live');
   }
   lastInfo = info;
-  $('headerMeta').textContent = t('headerMeta', s.frames || 0, s.uptime || 0);
   checkStreamHealth(s.frames);
 
 
@@ -882,7 +889,6 @@ $('level').addEventListener('change', e => {
 });
 
 applyLang();
-$('headerMeta').textContent = t('headerConnecting');
 loadView();
 applyView();
 
