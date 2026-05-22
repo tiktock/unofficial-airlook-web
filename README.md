@@ -56,7 +56,8 @@ Python 3.10+ — that's the only requirement, no `pip install` needed.
 | Live video | MJPEG over HTTP, served as `multipart/x-mixed-replace` to a plain `<img>` |
 | Photo save | Client-side `<canvas>` capture, browser download |
 | Video record | `MediaRecorder` on canvas `captureStream`, WebM/MP4 |
-| Rotation 90° / horizontal-flip / vertical-flip | CSS transform — applied to saved images too |
+| Manual rotation 90° / horizontal-flip / vertical-flip | CSS transform — applied to saved images too |
+| Auto-rotate (sub-degree) | Live atan2 of the gyro feed; smoothed, sub-1° precision |
 | Digital zoom 1–4× | CSS transform |
 | Brightness / contrast / saturation | CSS `filter:` |
 | LED toggle | UDP control command |
@@ -64,7 +65,7 @@ Python 3.10+ — that's the only requirement, no `pip install` needed.
 | Live 30 Hz XYZ accelerometer | Server-Sent Events; data is in every video chunk header |
 | Wi-Fi SoftAP rename / password change | UDP control command — applies on next reboot |
 | Fullscreen | Fullscreen API |
-| Keyboard shortcuts | Space/R/F/H/V/L/←/→/+/-/0 |
+| Keyboard shortcuts | Space/R/F/A/H/V/L/←/→/+/-/0 |
 | Multi-language UI (KO / EN) | Auto-detect, toggle from header |
 
 ## Compatibility

@@ -79,16 +79,22 @@ or English). Toggle via the `EN` / `한` button in the header.
 ## UI features
 
 * Live video display via plain `<img src="/stream.mjpg">` — no plugins.
-* Rotation (90° steps), horizontal / vertical flip, digital zoom 1–4×.
+* Manual rotation (90° steps), horizontal / vertical flip, digital zoom 1–4×.
+* **Auto-rotate** that drives the displayed angle from the gyro feed — `atan2`
+  of the live accelerometer with low-pass smoothing and a 0.5° dead-band,
+  so the displayed image stays upright as the otoscope is twisted in the
+  hand. Sub-1° precision; toggle with the `A` key.
 * Brightness / contrast / saturation CSS filters — all applied to saved
   photos / recordings via `<canvas>`.
 * 📷 Photo save — exports JPEG at the displayed orientation / zoom / filters.
+  Bounding-box canvas, so arbitrary rotation angles don't crop the image.
 * 🔴 Video record — `MediaRecorder` on a canvas `captureStream`, downloads
-  WebM (or MP4 if the browser supports it).
+  WebM (or MP4 if the browser supports it). Orientation is locked at
+  record start.
 * Fullscreen toggle (Fullscreen API).
 * Keyboard shortcuts (`Space` = photo, `R` = record, `F` = fullscreen,
-  `H` / `V` = flip, `L` = LED, `←` / `→` = rotate, `+` / `-` = zoom,
-  `0` = reset everything).
+  `A` = auto-rotate, `H` / `V` = flip, `L` = LED, `←` / `→` = rotate,
+  `+` / `-` = zoom, `0` = reset everything).
 * Battery state, voltage, charge bitfield interpretation, MAC, firmware,
   SoC — all derived from the SDK's own command set.
 * Live XYZ accelerometer feed at ~30 Hz via Server-Sent Events.
