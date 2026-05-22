@@ -1,5 +1,7 @@
 # Unofficial AIR-Look Web
 
+<img width="698" height="664" alt="image" src="https://github.com/user-attachments/assets/957dd8ef-55e1-46ba-a275-15965c7b8f52" />
+
 A self-hosted browser interface for **AIR-Look-compatible WiFi otoscopes**
 (`com.air.airlook` and family) — the cheap WiFi-SoftAP ear / skin / pet
 inspection cameras built around the **mlcamera SDK**. Live video, photo
