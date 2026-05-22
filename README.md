@@ -1,6 +1,6 @@
 # Unofficial AIR-Look Web
 
-<img width="698" height="664" alt="image" src="https://github.com/user-attachments/assets/957dd8ef-55e1-46ba-a275-15965c7b8f52" />
+<img width="1000" height="898" alt="image" src="https://github.com/user-attachments/assets/9c70755d-d3d0-49c6-a112-dd64a70cd379" />
 
 A self-hosted browser interface for **AIR-Look-compatible WiFi otoscopes**
 (`com.air.airlook` and family) — the cheap WiFi-SoftAP ear / skin / pet
