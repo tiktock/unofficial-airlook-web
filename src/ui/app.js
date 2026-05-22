@@ -5,6 +5,8 @@
 const i18n = {
   ko: {
     rotate: "회전",
+    autoRotateOff: "🧭 자동 회전",
+    autoRotateOn:  "🧭 자동 회전 ON",
     flipH: "좌우",
     flipV: "상하",
     fullscreen: "전체화면",
@@ -104,6 +106,8 @@ const i18n = {
   },
   en: {
     rotate: "Rotate",
+    autoRotateOff: "🧭 Auto-rotate",
+    autoRotateOn:  "🧭 Auto-rotate ON",
     flipH: "Flip H",
     flipV: "Flip V",
     fullscreen: "Fullscreen",
@@ -339,6 +343,8 @@ const view = {
   brightness: 100, // %
   contrast: 100,
   saturate: 100,
+  autoRotate: false, // sensor-driven sub-degree rotation
+  autoAngle: 0,      // current smoothed angle (deg) — derived from gyro
 };
 
 let mediaRecorder = null;
@@ -356,6 +362,50 @@ function effectiveRotation() {
   return ((view.rotation % 360) + 360) % 360;
 }
 
+// Compute the rotation actually applied to <img> and capture canvas.
+// When auto-rotate is on, sensor-derived `autoAngle` overrides manual.
+// Manual rotation can still serve as a baseline added on top — useful if the
+// device is mounted at a known 90° offset.
+function displayedAngle() {
+  return view.autoRotate ? (view.rotation + view.autoAngle) : view.rotation;
+}
+
+// Convert raw accelerometer reading to roll angle (rotation around the
+// otoscope's long axis). Matches the Java reference impl in
+// StreamSelf.doExecuteMJPEG — atan2 of signed Y/Z gives [-180°, 180°].
+function gyroToAngleDeg(a) {
+  // Y, Z are 10-bit (0..1023); fold to signed [-512, 512]
+  const ys = a.y >= 512 ? a.y - 1024 : a.y;
+  const zs = a.z >= 512 ? a.z - 1024 : a.z;
+  if (ys === 0 && zs === 0) return view.autoAngle;  // degenerate, keep last
+  return Math.atan2(ys, zs) * 180 / Math.PI;
+}
+
+// Low-pass-filtered angle update from gyro. Called from SSE handler at ~30Hz.
+// Smoothing factor `ALPHA` keeps the visual response snappy but removes
+// per-sample sensor noise. Tiny movements below `DEADBAND_DEG` are ignored
+// so a perfectly still device doesn't jitter.
+const AUTO_ROTATE_ALPHA = 0.25;
+const AUTO_ROTATE_DEADBAND_DEG = 0.5;
+function updateAutoRotation(rawAccel) {
+  const target = gyroToAngleDeg(rawAccel);
+  // Wrap to nearest 360 of current angle to avoid 359→0 spinning
+  let delta = target - view.autoAngle;
+  if (delta > 180) delta -= 360;
+  if (delta < -180) delta += 360;
+  const next = view.autoAngle + delta * AUTO_ROTATE_ALPHA;
+  if (Math.abs(next - view.autoAngle) >= AUTO_ROTATE_DEADBAND_DEG) {
+    view.autoAngle = next;
+    if (view.autoRotate) applyView();
+  }
+}
+
+function toggleAutoRotate() {
+  view.autoRotate = !view.autoRotate;
+  applyView(); saveView();
+  toast(view.autoRotate ? t("autoRotateOn") : t("autoRotateOff"), "ok");
+}
+
 function setBtnLabel(id, text) {
   const el = document.querySelector(`#${id} .btn-label`);
   if (el) el.textContent = text;
@@ -367,14 +417,24 @@ function applyView() {
   // right-to-left, so rotate must be the LAST entry to be applied first, with
   // flip applied AFTERWARDS in the screen-aligned coordinate frame. Otherwise
   // a 90°/270° rotation rotates the flip axis with it, which is unintuitive.
+  const angle = displayedAngle();
   const tr = [`scale(${view.zoom})`];
   if (view.flipH) tr.push('scaleX(-1)');
   if (view.flipV) tr.push('scaleY(-1)');
-  tr.push(`rotate(${view.rotation}deg)`);
+  tr.push(`rotate(${angle}deg)`);
   img.style.transform = tr.join(' ');
   img.style.filter =
     `brightness(${view.brightness}%) contrast(${view.contrast}%) saturate(${view.saturate}%)`;
-  setBtnLabel('rotBtn', `↻ ${t('rotate')} ${effectiveRotation()}°`);
+  if (view.autoRotate) {
+    setBtnLabel('rotBtn', `↻ ${t('rotate')} ${(angle % 360).toFixed(1)}°`);
+  } else {
+    setBtnLabel('rotBtn', `↻ ${t('rotate')} ${effectiveRotation()}°`);
+  }
+  const autoBtn = $('autoRotBtn');
+  if (autoBtn) {
+    setBtnLabel('autoRotBtn', view.autoRotate ? t('autoRotateOn') : t('autoRotateOff'));
+    autoBtn.style.background = view.autoRotate ? '#38404f' : '';
+  }
   $('flipHBtn').style.background = view.flipH ? '#38404f' : '';
   $('flipVBtn').style.background = view.flipV ? '#38404f' : '';
   $('zoom').value = Math.round(view.zoom * 100);
@@ -411,15 +471,23 @@ function resetAdjust() {
   toast(t('tResetAdjust'), 'ok');
 }
 
+// Compute the canvas dimensions for an arbitrarily rotated w×h image so the
+// rotated content fits exactly inside the bounding box.
+function rotatedBounds(w, h, angleDeg) {
+  const rad = angleDeg * Math.PI / 180;
+  const c = Math.abs(Math.cos(rad));
+  const s = Math.abs(Math.sin(rad));
+  return { cw: Math.round(w * c + h * s), ch: Math.round(w * s + h * c) };
+}
+
 function makeCaptureCanvas(img) {
   // Captures exactly what the user sees: rotation, flip, zoom, and CSS filters
-  // are all baked into the resulting canvas.
+  // are all baked into the resulting canvas. Works for arbitrary angles
+  // (auto-rotate) as well as the 90° manual steps.
   const w = img.naturalWidth || 640;
   const h = img.naturalHeight || 480;
-  const eff = effectiveRotation();
-  const rotated = (eff === 90 || eff === 270);
-  const cw = rotated ? h : w;
-  const ch = rotated ? w : h;
+  const angle = displayedAngle();
+  const { cw, ch } = rotatedBounds(w, h, angle);
   const canvas = document.createElement('canvas');
   canvas.width = cw; canvas.height = ch;
   const ctx = canvas.getContext('2d');
@@ -431,7 +499,7 @@ function makeCaptureCanvas(img) {
   ctx.translate(cw / 2, ch / 2);
   ctx.scale(view.zoom, view.zoom);
   ctx.scale(view.flipH ? -1 : 1, view.flipV ? -1 : 1);
-  ctx.rotate((eff * Math.PI) / 180);
+  ctx.rotate((angle * Math.PI) / 180);
   ctx.drawImage(img, -w / 2, -h / 2);
   return canvas;
 }
@@ -495,15 +563,16 @@ async function toggleRecording() {
   const mime = pickMimeType();
   if (!mime) { toast(t('tNoRecSupport'), 'err'); return; }
   const w = img.naturalWidth, h = img.naturalHeight;
-  const eff = effectiveRotation();
-  const rotated = (eff === 90 || eff === 270);
+  // Snapshot view state at recording start — orientation/zoom/filter are
+  // frozen for the duration. The displayed live image keeps tracking the
+  // user's adjustments; the recording stays at start-of-record state.
+  const recView = { ...view };
+  const recAngle = recView.autoRotate ? (recView.rotation + recView.autoAngle) : recView.rotation;
+  const { cw, ch } = rotatedBounds(w, h, recAngle);
   const canvas = document.createElement('canvas');
-  canvas.width  = rotated ? h : w;
-  canvas.height = rotated ? w : h;
+  canvas.width = cw; canvas.height = ch;
   const ctx = canvas.getContext('2d');
 
-  // Snapshot transform state at start; changes during recording don't affect output.
-  const recView = { ...view };
   const draw = () => {
     if (!mediaRecorder) return;
     ctx.save();
@@ -513,7 +582,7 @@ async function toggleRecording() {
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.scale(recView.zoom, recView.zoom);
     ctx.scale(recView.flipH ? -1 : 1, recView.flipV ? -1 : 1);
-    ctx.rotate((eff * Math.PI) / 180);
+    ctx.rotate((recAngle * Math.PI) / 180);
     ctx.drawImage(img, -w / 2, -h / 2);
     ctx.restore();
     recDrawHandle = requestAnimationFrame(draw);
@@ -771,6 +840,7 @@ document.addEventListener('keydown', (e) => {
     case 'f': case 'F': toggleFullscreen(); break;
     case 'h': case 'H': toggleFlipH(); saveView(); break;
     case 'v': case 'V': toggleFlipV(); saveView(); break;
+    case 'a': case 'A': toggleAutoRotate(); break;
     case 'l': case 'L': toggleLed(); break;
     case 'ArrowLeft':   view.rotation -= 90; applyView(); saveView(); break;
     case 'ArrowRight':  view.rotation += 90; applyView(); saveView(); break;
@@ -827,6 +897,7 @@ function openAccelStream() {
       const a = JSON.parse(e.data);
       $('accel').textContent =
         `X=${String(a.x).padStart(4,' ')}  Y=${String(a.y).padStart(4,' ')}  Z=${String(a.z).padStart(4,' ')}`;
+      updateAutoRotation(a);
     } catch (_) {}
   };
 }
