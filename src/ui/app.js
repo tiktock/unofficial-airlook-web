@@ -387,12 +387,16 @@ function gyroToAngleDeg(a) {
 // so a perfectly still device doesn't jitter.
 const AUTO_ROTATE_ALPHA = 0.25;
 const AUTO_ROTATE_DEADBAND_DEG = 0.5;
+let lastAccel = null;
 function updateAutoRotation(rawAccel) {
+  lastAccel = rawAccel;
   const target = gyroToAngleDeg(rawAccel);
-  // Wrap to nearest 360 of current angle to avoid 359→0 spinning
+  // Unwrap delta to the SHORTEST signed path. `while` (not `if`) so we
+  // handle any magnitude — autoAngle may have accumulated through many
+  // full rotations.
   let delta = target - view.autoAngle;
-  if (delta > 180) delta -= 360;
-  if (delta < -180) delta += 360;
+  while (delta >  180) delta -= 360;
+  while (delta < -180) delta += 360;
   const next = view.autoAngle + delta * AUTO_ROTATE_ALPHA;
   if (Math.abs(next - view.autoAngle) >= AUTO_ROTATE_DEADBAND_DEG) {
     view.autoAngle = next;
@@ -402,6 +406,11 @@ function updateAutoRotation(rawAccel) {
 
 function toggleAutoRotate() {
   view.autoRotate = !view.autoRotate;
+  // Snap to current device orientation on enable so we don't animate from
+  // whatever stale value autoAngle held.
+  if (view.autoRotate && lastAccel) {
+    view.autoAngle = gyroToAngleDeg(lastAccel);
+  }
   applyView(); saveView();
   toast(view.autoRotate ? t("autoRotateOn") : t("autoRotateOff"), "ok");
 }
@@ -425,6 +434,11 @@ function applyView() {
   img.style.transform = tr.join(' ');
   img.style.filter =
     `brightness(${view.brightness}%) contrast(${view.contrast}%) saturate(${view.saturate}%)`;
+  // Disable the 0.25s transform transition when auto-rotate is on. The 30Hz
+  // gyro-driven updates are already smooth on their own, and transitions
+  // would interpolate the "short way" across each frame — including the
+  // 179°→-179° wrap that looks like a full backward spin.
+  img.style.transition = view.autoRotate ? 'none' : '';
   if (view.autoRotate) {
     setBtnLabel('rotBtn', `↻ ${t('rotate')} ${(angle % 360).toFixed(1)}°`);
   } else {
