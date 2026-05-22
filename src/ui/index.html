@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>Unofficial AIR-Look Web</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/ui/app.css">
+</head>
+<body>
+<header>
+  <span id="liveDot" class="dot"></span>
+  <h1>Unofficial AIR-Look Web</h1>
+  <span class="meta" id="headerMeta"></span>
+  <button id="langBtn" onclick="toggleLang()" style="margin-left:auto;
+          font-size:11px;padding:4px 10px;min-width:auto">EN</button>
+</header>
+<main>
+  <section>
+    <div class="video-wrap">
+      <img id="video" alt="live stream" src="/stream.mjpg" crossorigin="anonymous">
+      <span id="recDot" class="rec-dot"></span>
+    </div>
+    <div class="video-toolbar">
+      <button onclick="cycleRotation()" id="rotBtn"><span class="btn-label">↻ 회전 0°</span><kbd>←/→</kbd></button>
+      <button onclick="toggleFlipH()" id="flipHBtn"><span data-i18n="flipH">⇆ 좌우</span><kbd>H</kbd></button>
+      <button onclick="toggleFlipV()" id="flipVBtn"><span data-i18n="flipV">⇅ 상하</span><kbd>V</kbd></button>
+      <button onclick="toggleFullscreen()" id="fsBtn"><span data-i18n="fullscreen">⛶ 전체화면</span><kbd>F</kbd></button>
+      <button onclick="resetAll()"><span data-i18n="reset">↺ 초기화</span><kbd>0</kbd></button>
+    </div>
+    <div class="video-toolbar">
+      <button onclick="savePhoto()"><span data-i18n="photoSave">📷 사진 저장</span><kbd>Space</kbd></button>
+      <button onclick="toggleRecording()" id="recBtn"><span class="btn-label">🔴 녹화 시작</span><kbd>R</kbd></button>
+    </div>
+
+    <div class="panel" style="margin-top:12px">
+      <h2 style="display:flex;justify-content:space-between;align-items:center">
+        <span data-i18n="viewAdjust">화면 조정</span>
+        <button onclick="resetAdjust()"
+                style="font-size:11px;padding:3px 8px;letter-spacing:0;
+                       text-transform:none;font-weight:500;color:var(--muted)">
+          <span style="margin-right:2px">↺</span><span data-i18n="reset">초기화</span>
+        </button>
+      </h2>
+      <div class="control">
+        <label><span data-i18n="zoom">줌</span><span id="zoomVal">1.0×</span></label>
+        <input id="zoom" type="range" min="100" max="400" step="10" value="100">
+      </div>
+      <div class="control">
+        <label><span data-i18n="brightness">밝기</span><span id="brightVal">100%</span></label>
+        <input id="brightness" type="range" min="0" max="200" value="100">
+      </div>
+      <div class="control">
+        <label><span data-i18n="contrast">대비</span><span id="contrastVal">100%</span></label>
+        <input id="contrast" type="range" min="0" max="200" value="100">
+      </div>
+      <div class="control">
+        <label><span data-i18n="saturation">채도</span><span id="saturateVal">100%</span></label>
+        <input id="saturate" type="range" min="0" max="200" value="100">
+      </div>
+    </div>
+  </section>
+  <aside>
+    <details class="panel" style="padding:0">
+      <summary class="panel-summary">
+        <span class="panel-h" data-i18n="statusPanel">상태</span>
+        <span class="summary-glance">
+          <span id="batterySummary">—</span>
+          <span id="chargeSummary"></span>
+        </span>
+      </summary>
+      <div style="padding:0 16px 14px">
+        <div class="row"><span class="k" data-i18n="streamLabel">스트림</span><span class="v" id="streamFps">— fps</span></div>
+        <div class="row"><span class="k" data-i18n="frames">프레임</span><span class="v" id="frames">—</span></div>
+        <div class="row"><span class="k" data-i18n="uptime">가동</span><span class="v" id="uptime">—</span></div>
+        <div class="row"><span class="k" data-i18n="battery">배터리</span><span class="v" id="battery">—</span></div>
+        <div class="row"><span class="k" data-i18n="voltage">전압</span><span class="v" id="voltage">—</span></div>
+        <div class="row"><span class="k" data-i18n="chargeRow">상태</span><span class="v" id="chargeState">—</span></div>
+        <div class="row"><span class="k" data-i18n="mac">MAC</span><span class="v code" id="mac">—</span></div>
+        <div class="row"><span class="k" data-i18n="gyro">자이로</span><span class="v code" id="accel">—</span></div>
+      </div>
+    </details>
+
+    <details class="panel" style="padding:0">
+      <summary class="panel-summary">
+        <span class="panel-h" data-i18n="deviceInfo">기기 정보</span>
+        <span class="summary-glance" id="bModelSummary">—</span>
+      </summary>
+      <div style="padding:0 16px 14px">
+        <div class="row"><span class="k" data-i18n="model">모델</span><span class="v" id="bModel">—</span></div>
+        <div class="row"><span class="k" data-i18n="manufacturer">제조사</span><span class="v" id="bMfr">—</span></div>
+        <div class="row"><span class="k" data-i18n="soc">SoC</span><span class="v" id="bSoc">—</span></div>
+        <div class="row"><span class="k" data-i18n="firmware">펌웨어</span><span class="v" id="bFw">—</span></div>
+        <div class="row"><span class="k" data-i18n="build">빌드</span><span class="v" id="bFwDate">—</span></div>
+        <div class="row"><span class="k" data-i18n="streamType">스트림</span><span class="v" id="bStream">—</span></div>
+        <div class="row"><span class="k" data-i18n="ble">BLE</span><span class="v" id="bBle">—</span></div>
+      </div>
+    </details>
+
+    <div class="panel">
+      <h2 data-i18n="ledPanel">LED</h2>
+      <div class="row">
+        <span class="k" data-i18n="currentPwm">현재 PWM</span>
+        <span class="v" id="pwmCur">—</span>
+      </div>
+      <div class="btn-row" style="margin-top:10px">
+        <button id="ledToggleBtn" onclick="toggleLed()"><span class="btn-label">💡 LED</span><kbd>L</kbd></button>
+      </div>
+      <details style="margin-top:12px">
+        <summary style="color:var(--muted);cursor:pointer;font-size:12px"
+                 data-i18n="experimental">실험적</summary>
+        <p style="font-size:11px;color:var(--warn);line-height:1.5;margin:8px 0"
+           data-i18n="expWarning">⚠ 기기에 따라 0과 그 외 값(=ON)으로만 반응하고, 중간 밝기 조절이 안 될 수 있습니다.</p>
+        <div class="control" style="margin-top:8px">
+          <label><span data-i18n="pwmTry">PWM 시도</span><span id="pwmVal">—</span></label>
+          <input id="pwm" type="range" min="0" max="255" value="0">
+        </div>
+        <div class="row" style="font-size:12px;color:var(--muted)">
+          <span class="k" data-i18n="levelRawLabel">Level (raw)</span>
+          <span class="v code" id="levelRaw">—</span>
+        </div>
+        <div class="control" style="margin-top:6px">
+          <label><span data-i18n="levelTry">Level 시도</span><span id="levelVal">0</span></label>
+          <input id="level" type="range" min="0" max="8" value="0">
+        </div>
+      </details>
+    </div>
+
+    <details class="panel" style="padding:0">
+      <summary style="padding:14px 16px;color:var(--muted);cursor:pointer"
+               data-i18n="resolutionPanel">해상도 변경</summary>
+      <div style="padding:0 16px 14px">
+        <p style="font-size:11px;color:var(--warn);line-height:1.5;margin:0 0 12px"
+           data-i18n="resWarning">⚠ 기기에 따라 미지원일 수 있습니다. 명령은 전송되지만 실제 영상 해상도가 바뀌지 않을 수 있습니다.</p>
+        <!-- Dev note: SetResolution = SETCMD format A opcode 0x0008, payload
+             = width(LE u16) + height(LE u16) + mode(u8). Camera ACKs even
+             when firmware ignores it. -->
+        <div class="preset-grid">
+          <button onclick="setRes(640,480)">640×480</button>
+          <button onclick="setRes(800,600)">800×600</button>
+          <button onclick="setRes(1280,720)">1280×720</button>
+          <button onclick="setRes(1920,1080)">1920×1080</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="panel" style="padding:0">
+      <summary style="padding:14px 16px;color:var(--muted);cursor:pointer"
+               data-i18n="wifiPanel">Wi-Fi 설정 ⚠️</summary>
+      <div style="padding:0 16px 14px">
+        <p style="font-size:11px;color:var(--warn);line-height:1.5;margin:0 0 12px"
+           data-i18n-html="wifiWarning">⚠ 변경 사항은 카메라에 저장되지만 <b>다음 재부팅 시점에 적용</b>됩니다. 카메라 전원을 끄고 다시 켜면 새 SSID/비밀번호로 접속할 수 있습니다.</p>
+        <div class="control">
+          <label><span data-i18n="newSsid">새 SSID</span></label>
+          <input id="newSsid" type="text" maxlength="32" data-i18n-ph="ssidPlaceholder" placeholder="예: MyOtoscope"
+                 style="width:100%;padding:6px 8px;background:#0e1014;color:var(--fg);
+                        border:1px solid var(--line);border-radius:6px;font-size:13px">
+        </div>
+        <button onclick="wifiSetName()" data-i18n="applySsid" style="width:100%;margin-top:6px">SSID 적용</button>
+        <div class="control" style="margin-top:14px">
+          <label><span data-i18n="newPassword">새 비밀번호 (8~63자)</span></label>
+          <input id="newPass" type="password" maxlength="63" data-i18n-ph="pwdPlaceholder" placeholder="WPA2 password"
+                 style="width:100%;padding:6px 8px;background:#0e1014;color:var(--fg);
+                        border:1px solid var(--line);border-radius:6px;font-size:13px">
+        </div>
+        <div class="btn-row" style="margin-top:6px">
+          <button onclick="wifiSetPassword()" data-i18n="applyPassword">비밀번호 적용</button>
+          <button class="danger" onclick="wifiClearPassword()" data-i18n="clearPassword">비밀번호 해제 (오픈 AP)</button>
+        </div>
+        <!-- Dev note: omitted STA-side opcodes that don't respond on this
+             firmware family — get_ssid_list (0x101a), clear_ap_params (0x1011),
+             set_switch_mode (0x1018), set_ap_params (0x1010). All Format B
+             0x9999 sent to UDP/50000; camera ignores them entirely. -->
+      </div>
+    </details>
+
+    <div class="panel">
+      <h2 data-i18n="powerPanel">전원</h2>
+      <div class="btn-row">
+        <button class="danger"
+                onclick="cmd('shutdown', t('confirmShutdown'))">
+          <span data-i18n="shutdown">종료</span>
+        </button>
+      </div>
+      <!-- Dev note: reboot button removed because on this firmware family
+           SETCMD 0x04 acts as a clean shutdown — no auto power-on, physical
+           button needed to turn back on. The /api/reboot endpoint is still
+           available for scripting / future firmware variants. -->
+    </div>
+  </aside>
+</main>
+<div id="toast" class="toast"></div>
+
+<script src="/ui/app.js"></script>
+</body>
+</html>
